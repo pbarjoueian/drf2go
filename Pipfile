@@ -1,0 +1,36 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "==5.2.7"
+djangorestframework = "==3.16.1"
+Markdown = "==3.9"
+django-filter = "==25.2"
+django-cors-headers = "==4.9.0"
+djangorestframework-simplejwt = "==5.5.1"
+django-environ = "==0.12.0"
+uwsgi = "==2.0.31"
+psycopg2-binary = "==2.9.11"
+drf-spectacular = "==0.29.0"
+django-admin-honeypot1 = "==1.2.0"
+celery = "==5.4.0"
+django-celery-beat = "==2.8.0"
+channels = "==4.1.0"
+daphne = "==4.1.0"
+channels-redis = "==4.2.0"
+
+[dev-packages]
+isort = "==7.0.0"
+black = "==25.9.0"
+flake8 = "==7.3.0"
+autoflake = "==2.3.1"
+pre-commit = "==4.3.0"
+pytest = "==8.3.4"
+pytest-django = "==4.9.0"
+pytest-cov = "==6.0.0"
+pytest-mock = "==3.14.0"
+
+[requires]
+python_version = "3.13"

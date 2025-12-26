@@ -1,0 +1,15 @@
+
+-r requirements.txt
+
+isort==7.0.0
+black==25.9.0
+flake8==7.3.0
+flake8-pyproject==1.2.3
+autoflake==2.3.1
+pre-commit==4.3.0
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+websockets==14.1
+
