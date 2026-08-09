@@ -1,33 +1,27 @@
 """
-Channels configuration settings.
+Django Channels configuration.
 
-This module contains Channels-related settings for WebSocket support.
+The Redis channel layer is the only layer that works across processes, so it is
+the default. ``CHANNEL_LAYER_IN_MEMORY=True`` swaps in the in-memory layer for
+tests and for running a single process without Redis - it must never be used
+with more than one worker.
 """
 
-# Import Redis configuration
-from .redis_conf import REDIS_CONFIG, REDIS_PASSWORD
+from ..env import env
+from .redis_conf import REDIS_CONFIG
 
-# Channels Configuration
-# https://channels.readthedocs.io/en/stable/topics/channel_layers.html
-
-# Use Redis if Redis is configured (has password or explicit configuration)
-# In development, Redis might be optional, so check if it's actually configured
-# We check for REDIS_PASSWORD or if REDIS_CONFIG has hosts configured
-use_redis = REDIS_PASSWORD is not None or (REDIS_CONFIG and REDIS_CONFIG.get("hosts"))
-
-if use_redis:
-    # Redis is configured (either via URL or individual parameters)
+if env.bool("CHANNEL_LAYER_IN_MEMORY", default=False):
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }
+else:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": REDIS_CONFIG,
-        },
-    }
-else:
-    # Development: Use InMemoryChannelLayer when Redis is not configured
-    # This allows development without Redis if desired
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
+            "CONFIG": {
+                **REDIS_CONFIG,
+                "capacity": env.int("CHANNEL_LAYER_CAPACITY", default=1500),
+                "expiry": env.int("CHANNEL_LAYER_EXPIRY", default=60),
+            },
         },
     }

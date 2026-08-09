@@ -1,10 +1,9 @@
 """
-ASGI config for config project.
+ASGI entrypoint.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
+Serves HTTP through Django and WebSockets through Channels.
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
+https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
 """
 
 import os
@@ -12,17 +11,20 @@ import os
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.base")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
-# Initialize Django ASGI application early to ensure the AppRegistry
-# is populated before importing code that may import ORM models.
+# The app registry must be populated before importing anything that touches
+# models, so the HTTP application is built first.
 django_asgi_app = get_asgi_application()
 
-from core.routing import websocket_urlpatterns  # noqa
+from core.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
+        # Browser clients should additionally be guarded with
+        # channels.security.websocket.AllowedHostsOriginValidator; it is left
+        # off here because it rejects clients that send no Origin header.
         "websocket": URLRouter(websocket_urlpatterns),
     }
 )

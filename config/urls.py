@@ -1,20 +1,15 @@
 """
-URL configuration for config project.
+Root URL configuration.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+Add application routes under ``/api/`` by including their urls module here:
+
+    path("api/v1/", include("myapp.urls")),
+
+https://docs.djangoproject.com/en/6.0/topics/http/urls/
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import (
@@ -23,13 +18,18 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from core.views import healthz, readyz
+
 urlpatterns = [
-    # admin
+    # Operational probes (used by the container healthchecks).
+    path("healthz/", healthz, name="healthz"),
+    path("readyz/", readyz, name="readyz"),
+    # Admin. `/admin/` is a honeypot that logs login attempts; the real admin
+    # lives behind ADMIN_URL.
     path("admin/", include("admin_honeypot.urls", namespace="admin_honeypot")),
-    path("secret-admin/", admin.site.urls),
-    # documentations
+    path(settings.ADMIN_URL, admin.site.urls),
+    # OpenAPI schema and browsable documentation.
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    # Optional UI:
     path(
         "api/schema/swagger-ui/",
         SpectacularSwaggerView.as_view(url_name="schema"),
@@ -41,6 +41,10 @@ urlpatterns = [
         name="redoc",
     ),
 ]
+
+# In production nginx serves these directly from the shared volumes.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 admin.site.site_header = "Backend Service Administration Panel"
 admin.site.index_title = "Backend Service"

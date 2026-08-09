@@ -1,10 +1,10 @@
 """
-WSGI config for config project.
+WSGI entrypoint.
 
-It exposes the WSGI callable as a module-level variable named ``application``.
+Only serves HTTP - WebSockets require the ASGI application in ``config.asgi``,
+which is what the Docker images run. This module exists for WSGI-only tooling.
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
+https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
 """
 
 import os

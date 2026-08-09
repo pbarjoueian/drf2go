@@ -1,29 +1,40 @@
+"""
+Django REST Framework and SimpleJWT configuration.
+"""
+
 from datetime import timedelta
 
 from ..env import env
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
+    # Pagination is on by default: an unpaginated list endpoint is the most
+    # common way a Django API stops scaling.
+    "DEFAULT_PAGINATION_CLASS": ("rest_framework.pagination.LimitOffsetPagination"),
+    "PAGE_SIZE": env.int("DRF_PAGE_SIZE", default=50),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("DRF_THROTTLE_ANON", default="60/min"),
+        "user": env("DRF_THROTTLE_USER", default="1000/min"),
+    },
+}
 
-def get_rest_framework_config():
-    """Get REST framework configuration."""
-    return {
-        "DEFAULT_AUTHENTICATION_CLASSES": (
-            "rest_framework_simplejwt.authentication.JWTAuthentication",
-        ),
-        "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    }
-
-
-REST_FRAMEWORK = get_rest_framework_config()
-
-
+# SIGNING_KEY is intentionally omitted: SimpleJWT falls back to SECRET_KEY, so
+# there is exactly one place a signing secret can come from.
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=90),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": True,  # Enable token rotation
-    "BLACKLIST_AFTER_ROTATION": True,  # Blacklist old tokens
-    "UPDATE_LAST_LOGIN": True,  # Update last login timestamp
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=env.int("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", default=90)
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=env.int("JWT_REFRESH_TOKEN_LIFETIME_DAYS", default=1)
+    ),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": env("SECRET_KEY"),
     "VERIFYING_KEY": None,
     "AUDIENCE": None,
     "ISSUER": None,
@@ -33,7 +44,9 @@ SIMPLE_JWT = {
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",  # noqa
+    "USER_AUTHENTICATION_RULE": (
+        "rest_framework_simplejwt.authentication.default_user_authentication_rule"
+    ),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",

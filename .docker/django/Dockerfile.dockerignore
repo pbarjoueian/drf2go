@@ -1,0 +1,57 @@
+# Build context filter for .docker/django/Dockerfile (BuildKit resolves
+# `<dockerfile-path>.dockerignore` before falling back to the context root).
+# Keep this in sync with .docker/nginx/Dockerfile.dockerignore.
+
+# VCS & tooling
+.git
+.gitignore
+.github
+.idea
+.vscode
+.cursor
+.codegpt
+.qodo
+
+# Secrets & local state
+.env
+.env.*
+!.env.example
+*.sqlite3
+db.sqlite3
+
+# Python artefacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.Python
+.venv/
+venv/
+env/
+
+# Test & lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.hypothesis/
+
+# Runtime output
+logs/
+staticfiles/
+static/
+media/
+celerybeat-schedule*
+*.log
+*.pid
+
+# Docs & OS cruft
+README.pdf
+.DS_Store

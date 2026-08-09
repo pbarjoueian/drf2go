@@ -29,4 +29,3 @@ SPECTACULAR_SETTINGS = {
         "https://unpkg.com/swagger-ui-dist@5.11.0/favicon-32x32.png"
     ),
 }
-

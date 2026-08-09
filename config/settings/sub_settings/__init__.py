@@ -1,8 +1,15 @@
-from .celery_conf import *  # noqa
-from .channels_conf import *  # noqa
-from .cors_headers_conf import *  # noqa
-from .drf_conf import *  # noqa
-from .logging_conf import *  # noqa
-from .rabbitmq_conf import *  # noqa
-from .redis_conf import *  # noqa
-from .spectacular_conf import *  # noqa
+"""
+Feature-specific settings modules.
+
+Imported by ``config.settings.base`` at the end of the file so that each module
+can rely on the core settings already being defined.
+"""
+
+from .celery_conf import *
+from .channels_conf import *
+from .cors_headers_conf import *
+from .drf_conf import *
+from .logging_conf import *
+from .rabbitmq_conf import *
+from .redis_conf import *
+from .spectacular_conf import *

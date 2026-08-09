@@ -16,7 +16,6 @@ Usage:
 import argparse
 import asyncio
 import json
-import os
 import sys
 from datetime import datetime
 
@@ -65,7 +64,7 @@ async def test_websocket_connection(url: str, timeout: int = 10):
                     print("✓ Received expected connection message")
                 else:
                     print("⚠ Unexpected connection message format")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print("⚠ No initial connection message received")
             except json.JSONDecodeError as e:
                 print(f"⚠ Failed to parse initial message: {e}")
@@ -104,7 +103,7 @@ async def test_websocket_connection(url: str, timeout: int = 10):
                         print(
                             f"⚠ Unexpected response type: {response_data.get('type')}"
                         )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     print("✗ Timeout waiting for response")
                     return False
                 except json.JSONDecodeError as e:
@@ -126,7 +125,7 @@ async def test_websocket_connection(url: str, timeout: int = 10):
                     print("✓ Server correctly handled invalid JSON")
                 else:
                     print("⚠ Unexpected error response format")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print("⚠ No error response received")
 
             print("\n✓ WebSocket test completed successfully!")
@@ -143,7 +142,7 @@ async def test_websocket_connection(url: str, timeout: int = 10):
         print("\n  Start the server with:")
         print("    python manage.py runserver")
         print("  Or using Docker Compose:")
-        print("    docker-compose up web")
+        print("    make up  (starts the web service)")
         return False
     except Exception as e:
         print(f"✗ Connection failed: {e}")
@@ -172,7 +171,7 @@ async def test_multiple_connections(url: str, num_connections: int = 3):
 
                 # Receive response
                 response = await asyncio.wait_for(websocket.recv(), timeout=5)
-                response_data = json.loads(response)
+                json.loads(response)
 
                 print(f"  ✓ Connection {connection_id}: Success")
                 return True
@@ -194,7 +193,7 @@ def print_configuration(url: str):
     """Print current WebSocket configuration."""
     print_section("Configuration")
     print(f"WebSocket URL: {url}")
-    print(f"Protocol: WebSocket (WS)")
+    print("Protocol: WebSocket (WS)")
 
 
 def main():

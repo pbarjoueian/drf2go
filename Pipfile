@@ -4,33 +4,51 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-django = "==5.2.7"
-djangorestframework = "==3.16.1"
-Markdown = "==3.9"
-django-filter = "==25.2"
+# --- Core framework ---------------------------------------------------------
+# Pinned to the 6.0 series: django-celery-beat 2.9.0 requires Django<6.1.
+django = "==6.0.8"
+djangorestframework = "==3.18.0"
+django-filter = "==26.1"
 django-cors-headers = "==4.9.0"
 djangorestframework-simplejwt = "==5.5.1"
-django-environ = "==0.12.0"
-uwsgi = "==2.0.31"
-psycopg2-binary = "==2.9.11"
-drf-spectacular = "==0.29.0"
+django-environ = "==0.14.0"
+markdown = "==3.10.3"
+
+# --- Database ---------------------------------------------------------------
+psycopg = {extras = ["binary", "pool"], version = "==3.3.4"}
+
+# --- API schema / docs ------------------------------------------------------
+drf-spectacular = "==0.30.0"
+
+# --- Security ---------------------------------------------------------------
 django-admin-honeypot1 = "==1.2.0"
-celery = "==5.4.0"
-django-celery-beat = "==2.8.0"
-channels = "==4.1.0"
-daphne = "==4.1.0"
-channels-redis = "==4.2.0"
+
+# --- Async tasks ------------------------------------------------------------
+celery = "==5.6.3"
+django-celery-beat = "==2.9.0"
+
+# --- WebSockets / ASGI ------------------------------------------------------
+channels = "==4.3.2"
+channels-redis = "==4.3.0"
+daphne = "==4.2.3"
+
+# --- Observability ----------------------------------------------------------
+python-json-logger = "==4.1.0"
 
 [dev-packages]
-isort = "==7.0.0"
-black = "==25.9.0"
-flake8 = "==7.3.0"
-autoflake = "==2.3.1"
-pre-commit = "==4.3.0"
-pytest = "==8.3.4"
-pytest-django = "==4.9.0"
-pytest-cov = "==6.0.0"
-pytest-mock = "==3.14.0"
+ruff = "==0.16.2"
+pre-commit = "==4.6.1"
+pytest = "==9.1.1"
+pytest-django = "==4.13.0"
+pytest-cov = "==7.1.0"
+pytest-mock = "==3.15.1"
+websockets = "==17.0.1"
 
 [requires]
 python_version = "3.13"
+
+[scripts]
+lint = "ruff check ."
+format = "ruff format ."
+test = "pytest"
+manage = "python manage.py"

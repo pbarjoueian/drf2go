@@ -7,8 +7,9 @@ and context enrichment.
 """
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 
 def get_logger(name: str = "app") -> logging.Logger:
@@ -30,7 +31,7 @@ def get_logger(name: str = "app") -> logging.Logger:
 
 
 def log_request_response(
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     log_level: int = logging.INFO,
     include_request_body: bool = False,
     include_response_body: bool = False,
@@ -117,7 +118,7 @@ def log_request_response(
 
 
 def log_execution_time(
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     log_level: int = logging.INFO,
     log_slow_queries: bool = True,
     slow_query_threshold: float = 1.0,
@@ -134,7 +135,7 @@ def log_execution_time(
     Example:
         >>> @log_execution_time()
         >>> def expensive_operation():
-        >>>     # ... operation code ...
+        >>> # ... operation code ...
         >>>     pass
     """
     if logger is None:
@@ -157,15 +158,11 @@ def log_execution_time(
                 }
 
                 if execution_time > slow_query_threshold and log_slow_queries:
-                    msg = (
-                        f"Slow execution: {func.__name__} "
-                        f"took {execution_time:.2f}s"
-                    )
+                    msg = f"Slow execution: {func.__name__} took {execution_time:.2f}s"
                     logger.warning(msg, extra=log_data)
                 else:
                     msg = (
-                        f"Execution: {func.__name__} completed "
-                        f"in {execution_time:.2f}s"
+                        f"Execution: {func.__name__} completed in {execution_time:.2f}s"
                     )
                     logger.log(log_level, msg, extra=log_data)
 
@@ -174,7 +171,7 @@ def log_execution_time(
                 execution_time = time.time() - start_time
                 msg = (
                     f"Execution failed: {func.__name__} "
-                    f"after {execution_time:.2f}s - {str(e)}"
+                    f"after {execution_time:.2f}s - {e!s}"
                 )
                 logger.error(
                     msg,
@@ -194,7 +191,7 @@ def log_execution_time(
 
 
 def log_exception(
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     log_level: int = logging.ERROR,
     include_traceback: bool = True,
 ):
@@ -208,7 +205,7 @@ def log_exception(
 
     Example:
         >>> with log_exception():
-        >>>     # code that might raise an exception
+        >>> # code that might raise an exception
         >>>     risky_operation()
     """
     if logger is None:
@@ -220,7 +217,7 @@ def log_exception(
 
         def __exit__(self, exc_type, exc_value, exc_traceback):
             if exc_type is not None:
-                msg = f"Exception occurred: {exc_type.__name__}: " f"{exc_value}"
+                msg = f"Exception occurred: {exc_type.__name__}: {exc_value}"
                 if include_traceback:
                     logger.log(
                         log_level,
@@ -235,7 +232,7 @@ def log_exception(
     return ExceptionLogger()
 
 
-def enrich_log_context(**context: Any) -> Dict[str, Any]:
+def enrich_log_context(**context: Any) -> dict[str, Any]:
     """
     Create a dictionary of context data for structured logging.
 

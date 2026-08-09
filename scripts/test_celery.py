@@ -14,6 +14,7 @@ Usage:
     python scripts/test_celery.py --sync  # Run tasks synchronously for testing
 """
 
+import contextlib
 import os
 import sys
 from datetime import datetime
@@ -22,7 +23,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Set Django settings module
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.base")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django
 from celery import current_app
@@ -47,11 +48,11 @@ def test_broker_connection():
     try:
         # Get Celery app instance
         app = current_app
-        
+
         # Test broker connection
         inspect = app.control.inspect()
         active_queues = inspect.active_queues()
-        
+
         if active_queues:
             print("✓ Broker connection successful!")
             print(f"  Active queues: {len(active_queues)}")
@@ -66,7 +67,7 @@ def test_broker_connection():
     except Exception as e:
         print(f"✗ Broker connection failed: {e}")
         print("\n  Troubleshooting:")
-        print("  1. Check RabbitMQ is running: docker-compose ps rabbitmq")
+        print("  1. Check RabbitMQ is running: make ps")
         print("  2. Verify CELERY_BROKER_URL in settings")
         print("  3. Check RabbitMQ credentials match environment variables")
         return False
@@ -78,30 +79,33 @@ def test_task_registration():
     try:
         app = current_app
         registered_tasks = list(app.tasks.keys())
-        
+
         # Filter out Celery internal tasks
         project_tasks = [
-            task for task in registered_tasks
+            task
+            for task in registered_tasks
             if not task.startswith("celery.") and not task.startswith("_")
         ]
-        
+
         print(f"✓ Found {len(project_tasks)} registered task(s):")
         for task in sorted(project_tasks):
             print(f"  - {task}")
-        
+
         # Check for expected tasks
         expected_tasks = [
             "core.tasks.simple_async_task",
             "core.tasks.periodic_task",
             "config.celery.debug_task",
         ]
-        
-        missing_tasks = [task for task in expected_tasks if task not in registered_tasks]
+
+        missing_tasks = [
+            task for task in expected_tasks if task not in registered_tasks
+        ]
         if missing_tasks:
             print(f"\n⚠ Missing expected tasks: {missing_tasks}")
         else:
             print("\n✓ All expected tasks are registered!")
-        
+
         return True
     except Exception as e:
         print(f"✗ Task registration check failed: {e}")
@@ -114,25 +118,25 @@ def test_worker_availability():
     try:
         app = current_app
         inspect = app.control.inspect()
-        
+
         # Check active workers
         active_workers = inspect.active()
         stats = inspect.stats()
-        
+
         if active_workers:
             print("✓ Active workers found:")
-            for worker in active_workers.keys():
-                worker_stats = stats.get(worker, {})
+            for worker in active_workers:
+                pool = stats.get(worker, {}).get("pool", {})
                 print(f"  - {worker}")
-                print(f"    Pool: {worker_stats.get('pool', {}).get('implementation', 'N/A')}")
-                print(f"    Processes: {worker_stats.get('pool', {}).get('max-concurrency', 'N/A')}")
+                print(f"    Pool: {pool.get('implementation', 'N/A')}")
+                print(f"    Processes: {pool.get('max-concurrency', 'N/A')}")
             return True
         else:
             print("⚠ No active workers found.")
             print("\n  To start a worker:")
             print("    celery -A config worker -l info")
             print("\n  Or using Docker Compose:")
-            print("    docker-compose up celery_worker")
+            print("    make up  (starts the celery_worker service)")
             return False
     except Exception as e:
         print(f"✗ Worker availability check failed: {e}")
@@ -142,20 +146,20 @@ def test_worker_availability():
 def test_task_execution(sync: bool = False):
     """Test task execution."""
     print_section("Testing Task Execution")
-    
+
     if sync:
         print("Running tasks synchronously (for testing without worker)...")
         try:
             # Test simple_async_task
             result = simple_async_task("Hello from test script!")
-            print(f"✓ simple_async_task executed successfully")
+            print("✓ simple_async_task executed successfully")
             print(f"  Result: {result}")
-            
+
             # Test periodic_task
             result = periodic_task()
-            print(f"✓ periodic_task executed successfully")
+            print("✓ periodic_task executed successfully")
             print(f"  Result: {result}")
-            
+
             return True
         except Exception as e:
             print(f"✗ Task execution failed: {e}")
@@ -165,34 +169,34 @@ def test_task_execution(sync: bool = False):
             # Test async task execution
             print("Sending simple_async_task...")
             task_result = simple_async_task.delay("Hello from test script!")
-            print(f"✓ Task sent successfully")
+            print("✓ Task sent successfully")
             print(f"  Task ID: {task_result.id}")
             print(f"  State: {task_result.state}")
-            
+
             # Wait for result (with timeout)
             try:
                 result = task_result.get(timeout=10)
-                print(f"✓ Task completed successfully")
+                print("✓ Task completed successfully")
                 print(f"  Result: {result}")
             except Exception as e:
                 print(f"⚠ Task execution timeout or error: {e}")
                 print("  Make sure Celery worker is running")
                 return False
-            
+
             # Test periodic_task
             print("\nSending periodic_task...")
             task_result = periodic_task.delay()
-            print(f"✓ Task sent successfully")
+            print("✓ Task sent successfully")
             print(f"  Task ID: {task_result.id}")
-            
+
             try:
                 result = task_result.get(timeout=10)
-                print(f"✓ Task completed successfully")
+                print("✓ Task completed successfully")
                 print(f"  Result: {result}")
             except Exception as e:
                 print(f"⚠ Task execution timeout or error: {e}")
                 return False
-            
+
             return True
         except Exception as e:
             print(f"✗ Task execution failed: {e}")
@@ -208,19 +212,16 @@ def test_debug_task():
     print_section("Testing Debug Task")
     try:
         from config.celery import debug_task
-        
+
         print("Sending debug_task...")
         task_result = debug_task.delay()
-        print(f"✓ Debug task sent successfully")
+        print("✓ Debug task sent successfully")
         print(f"  Task ID: {task_result.id}")
-        
-        try:
-            # Debug task has ignore_result=True, so we just check it was accepted
+
+        # Debug task has ignore_result=True, so a timeout here is expected.
+        with contextlib.suppress(Exception):
             task_result.get(timeout=5)
-        except Exception:
-            # This is expected for ignore_result tasks
-            pass
-        
+
         print("✓ Debug task executed (result ignored as configured)")
         return True
     except Exception as e:
@@ -241,7 +242,7 @@ def print_configuration():
 def main():
     """Main test function."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Test Celery functionality")
     parser.add_argument(
         "--sync",
@@ -254,38 +255,38 @@ def main():
         help="Skip task execution tests",
     )
     args = parser.parse_args()
-    
+
     print("\n" + "=" * 70)
     print("  CELERY TEST SUITE")
     print("=" * 70)
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
+
     # Print configuration
     print_configuration()
-    
+
     # Run tests
     results = []
-    
+
     results.append(("Broker Connection", test_broker_connection()))
     results.append(("Task Registration", test_task_registration()))
     results.append(("Worker Availability", test_worker_availability()))
-    
+
     if not args.skip_execution:
         results.append(("Task Execution", test_task_execution(sync=args.sync)))
         if not args.sync:
             results.append(("Debug Task", test_debug_task()))
-    
+
     # Print summary
     print_section("Test Summary")
     passed = sum(1 for _, result in results if result)
     total = len(results)
-    
+
     for test_name, result in results:
         status = "✓ PASS" if result else "✗ FAIL"
         print(f"  {status}: {test_name}")
-    
+
     print(f"\nResults: {passed}/{total} tests passed")
-    
+
     if passed == total:
         print("\n✓ All tests passed!")
         return 0
@@ -296,4 +297,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

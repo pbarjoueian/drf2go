@@ -1,52 +1,86 @@
-[tool.black]
+[tool.ruff]
+# Ruff is the single source of truth for linting *and* formatting.
+# It replaces black (format), isort (I), flake8 (E/F/W/B/C4) and autoflake (F401/F841).
 line-length = 88
-target-version = ['py310']
-include = '\.pyi?$'
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-^/venv/
-'''
-
-[tool.isort]
-profile = "black"
-line_length = 88
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-known_first_party = ["config"]
-default_section = "THIRDPARTY"
-
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "W503"]
-exclude = [
-    ".git",
-    "__pycache__",
+target-version = "py313"
+extend-exclude = [
+    ".docker",
     ".venv",
     "venv",
     "env",
-    ".env",
+    "build",
+    "dist",
+    "logs",
+    "static",
+    "staticfiles",
+    "media",
+    "**/migrations/*",
 ]
 
+[tool.ruff.lint]
+select = [
+    "F",   # pyflakes
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "DJ",  # flake8-django
+    "S",   # flake8-bandit
+    "SIM", # flake8-simplify
+    "T20", # flake8-print
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "S101",   # `assert` is legitimate in tests and type narrowing
+    "RUF012", # Django class attributes are conventionally plain mutables
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Settings modules re-export via star imports by design.
+"config/settings/__init__.py" = ["F403", "F405"]
+# Settings legitimately name credential-shaped defaults and sentinels (S105/S106).
+"config/settings/base.py" = ["E402", "F403", "F405", "S105"]
+"config/settings/sub_settings/__init__.py" = ["F403", "F405"]
+"config/settings/sub_settings/*.py" = ["S105", "S106"]
+# ASGI must call get_asgi_application() before importing anything ORM-backed.
+"config/asgi.py" = ["E402"]
+# Operator-facing scripts intentionally print and bootstrap Django mid-module.
+"scripts/*.py" = ["T201", "E402"]
+# Tests use throwaway credentials and print-free assertions.
+# `User = get_user_model()` / `APIClient = ...` are the idiomatic Django spellings.
+"tests/*.py" = ["S105", "S106", "S107", "N806"]
+"conftest.py" = ["S105", "S106", "S107", "N806"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "core", "tests"]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["django.utils.translation.gettext_lazy"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+skip-magic-trailing-comma = false
+
 [tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+testpaths = ["tests"]
 addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
-    "--cov=.",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
-    "--cov-branch",
     "--reuse-db",
 ]
-testpaths = ["tests"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
@@ -57,4 +91,25 @@ filterwarnings = [
     "error",
     "ignore::UserWarning",
     "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["config", "core"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "config/asgi.py",
+    "config/wsgi.py",
+    "manage.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    'if __name__ == "__main__":',
 ]

@@ -1,0 +1,184 @@
+# Development stack.
+#
+# All paths below are relative to the *project directory* (the repository root),
+# which is why every command must pass `--project-directory .`. The Makefile
+# does this for you:
+#
+#   make up          # build + start
+#   make logs
+#   make down
+#
+# Raw equivalent:
+#   docker compose --project-directory . --env-file .env -f .docker/compose.yaml up
+
+name: drf2go-dev
+
+# --- reusable fragments -----------------------------------------------------
+
+x-django-build: &django-build
+  build:
+    context: .
+    dockerfile: .docker/django/Dockerfile
+    target: development
+  image: drf2go/django:dev
+  env_file:
+    - ${ENV_FILE:-.env}
+  volumes:
+    - .:/app:cached
+  restart: unless-stopped
+
+# Connections are described with discrete parameters rather than URLs: the
+# settings layer assembles and percent-encodes them, so passwords containing
+# "@", ":" or "%" cannot corrupt a connection string. The empty *_URL values
+# neutralise anything inherited from .env and mean "derive it from the parts";
+# set one of them in .env to point at a managed service instead.
+x-django-env: &django-env
+  DJANGO_SETTINGS_MODULE: config.settings
+  DJANGO_ENV: development
+  DEBUG: "True"
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1},localhost,127.0.0.1,web,nginx
+
+  DATABASE_URL: ${DATABASE_URL:-}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-drf2go}
+  POSTGRES_USER: ${POSTGRES_USER:-db_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+
+  RABBITMQ_URL: ${RABBITMQ_URL:-}
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-}
+
+  REDIS_URL: ${REDIS_URL:-}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-redis-password}
+  REDIS_DB: ${REDIS_DB:-0}
+
+x-service-deps: &service-deps
+  db:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+# --- application services ---------------------------------------------------
+
+services:
+  web:
+    <<: *django-build
+    environment:
+      <<: *django-env
+      # Exactly one service owns schema migrations so replicas never race.
+      AUTO_MIGRATE: "true"
+    command:
+      - daphne
+      - -b
+      - 0.0.0.0
+      - -p
+      - "8000"
+      - config.asgi:application
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    depends_on: *service-deps
+
+  celery_worker:
+    <<: *django-build
+    environment: *django-env
+    command: celery -A config worker -l info
+    healthcheck:
+      # CMD-SHELL, not CMD: $HOSTNAME has to be expanded by a shell, and the
+      # node name must be pinned so the check fails when *this* worker is down
+      # rather than passing because some other replica answered.
+      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    depends_on: *service-deps
+
+  celery_beat:
+    <<: *django-build
+    environment: *django-env
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+# --- backing services -------------------------------------------------------
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-drf2go}
+      POSTGRES_USER: ${POSTGRES_USER:-db_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+    ports:
+      - "${POSTGRES_PORT_PUBLISHED:-5432}:5432"
+    volumes:
+      # postgres:18+ stores the cluster in a version-specific subdirectory,
+      # so the volume mounts one level above the old /var/lib/postgresql/data.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT_PUBLISHED:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT_PUBLISHED:-15672}:15672"
+    volumes:
+      - .docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/10-drf2go.conf:ro
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-dev-redis-password}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dev-redis-password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
