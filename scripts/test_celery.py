@@ -32,7 +32,7 @@ from django.conf import settings
 # Initialize Django
 django.setup()
 
-from core.tasks import periodic_task, simple_async_task
+from apps.core.tasks import periodic_task, simple_async_task
 
 
 def print_section(title: str):
@@ -93,8 +93,8 @@ def test_task_registration():
 
         # Check for expected tasks
         expected_tasks = [
-            "core.tasks.simple_async_task",
-            "core.tasks.periodic_task",
+            "apps.core.tasks.simple_async_task",
+            "apps.core.tasks.periodic_task",
             "config.celery.debug_task",
         ]
 

@@ -55,7 +55,7 @@ ignore = [
 "conftest.py" = ["S105", "S106", "S107", "N806"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["config", "core", "tests"]
+known-first-party = ["apps", "config", "tests"]
 combine-as-imports = true
 split-on-trailing-comma = false
 
@@ -95,7 +95,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 branch = true
-source = ["config", "core"]
+source = ["apps", "config"]
 omit = [
     "*/migrations/*",
     "*/tests/*",

@@ -3,7 +3,7 @@ Root URL configuration.
 
 Add application routes under ``/api/`` by including their urls module here:
 
-    path("api/v1/", include("myapp.urls")),
+    path("api/v1/", include("apps.myapp.urls")),
 
 https://docs.djangoproject.com/en/6.0/topics/http/urls/
 """
@@ -18,7 +18,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from core.views import healthz, readyz
+from apps.core.views import healthz, readyz
 
 urlpatterns = [
     # Operational probes (used by the container healthchecks).

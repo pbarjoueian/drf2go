@@ -25,7 +25,7 @@ app.autodiscover_tasks()
 # into the database on startup, after which they can be edited from the admin.
 app.conf.beat_schedule = {
     "simple-periodic-task": {
-        "task": "core.tasks.periodic_task",
+        "task": "apps.core.tasks.periodic_task",
         "schedule": crontab(minute="*/30"),
     },
 }

@@ -120,9 +120,11 @@ def _build_logging_config() -> dict:
             "celery": logger("INFO"),
             "rest_framework": logger("INFO"),
             "drf_spectacular": logger("INFO"),
-            # Namespace for application code: core.logging.get_logger(__name__).
+            # Namespaces for application code:
+            # apps.core.logging.get_logger(__name__) yields "apps.<app>.<module>",
+            # while get_logger() with no argument yields "app".
             "app": logger(LOG_LEVEL),
-            "core": logger(LOG_LEVEL),
+            "apps": logger(LOG_LEVEL),
         },
     }
 

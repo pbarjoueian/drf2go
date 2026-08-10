@@ -42,6 +42,7 @@ Then open <http://localhost:8000/api/schema/swagger-ui/>.
 - [Make targets](#make-targets)
 - [Configuration](#configuration)
 - [Settings architecture](#settings-architecture)
+- [Adding an app](#adding-an-app)
 - [Docker architecture](#docker-architecture)
 - [Production deployment](#production-deployment)
 - [Code quality](#code-quality)
@@ -91,6 +92,8 @@ Redis password once `DEBUG` is off.
 
 ```text
 drf2go/
+├── apps/                        # every project app lives here as `apps.<name>`
+│   └── core/                    # shared app: tasks, consumers, views, logging helpers
 ├── .docker/                     # every Docker and Compose asset lives here
 │   ├── compose.yaml             # development stack
 │   ├── compose.prod.yaml        # production stack
@@ -113,7 +116,6 @@ drf2go/
 │       ├── env.py               # BASE_DIR + env loader
 │       └── sub_settings/        # celery, channels, cors, drf, logging,
 │                                # rabbitmq, redis, spectacular, url_utils
-├── core/                        # shared app: tasks, consumers, views, logging helpers
 ├── scripts/                     # operational smoke tests (Celery, WebSocket)
 ├── tests/                       # pytest suite
 ├── Makefile                     # the entrypoint for everything
@@ -296,7 +298,52 @@ import line in its `__init__.py`. Both `redis_conf` and `rabbitmq_conf` accept
 either a URL or discrete parameters and normalise to both, using
 `url_utils.parse_url` / `build_url` (urllib-based, percent-encoding aware).
 
-Register project apps in `LOCAL_APPS` in `base.py`.
+---
+
+## Adding an app
+
+Every project app lives under `apps/` and is imported as `apps.<name>`, so the
+repository root stays limited to `apps/`, `config/`, `scripts/` and `tests/`
+however many apps the project grows.
+
+```bash
+mkdir apps/billing
+make manage ARGS="startapp billing apps/billing"
+```
+
+`startapp` writes `name = "billing"` into the generated `apps.py`; change it to
+the dotted path, which is what Django imports:
+
+```python
+# apps/billing/apps.py
+class BillingConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.billing"  # not "billing"
+```
+
+Then register it in `LOCAL_APPS` in `config/settings/base.py`:
+
+```python
+LOCAL_APPS = [
+    "apps.core",
+    "apps.billing",
+]
+```
+
+and include its routes from `config/urls.py`:
+
+```python
+urlpatterns = [
+    ...,
+    path("api/v1/billing/", include("apps.billing.urls")),
+]
+```
+
+The app label stays the trailing component (`billing`), so `manage.py
+makemigrations billing`, `get_app_config("billing")` and migration
+dependencies are unaffected by the package nesting. Celery tasks and Channels
+consumers are discovered automatically once the app is in `LOCAL_APPS`; their
+dotted names gain the `apps.` prefix (`apps.billing.tasks.send_invoice`).
 
 ---
 
@@ -462,7 +509,7 @@ make test-cov                  # with coverage (term + XML)
 pytest is configured in `pyproject.toml`: `DJANGO_SETTINGS_MODULE=config.settings`,
 `testpaths=["tests"]`, `--reuse-db`, `--strict-markers`, and the markers `slow`,
 `integration`, `unit` and `api`. Coverage settings live under
-`[tool.coverage.*]` and measure `config` and `core`.
+`[tool.coverage.*]` and measure `config` and `apps`.
 
 Fixtures in `conftest.py`: `api_client`, `authenticated_api_client`, `user`,
 `superuser`.
@@ -484,7 +531,7 @@ Worker and beat run as separate services in both stacks. RabbitMQ is the broker;
 task results go to Redis (database `CELERY_RESULT_BACKEND_DB`, default `1`).
 
 ```python
-from core.tasks import simple_async_task
+from apps.core.tasks import simple_async_task
 
 result = simple_async_task.delay("payload")
 result.id  # track it
@@ -512,11 +559,12 @@ make smoke
 
 ## WebSockets
 
-Consumers live in `core/consumers.py` and are routed in `core/routing.py`. The
+Consumers live in `apps/core/consumers.py` and are routed in
+`apps/core/routing.py`. The
 sample echo consumer is at `ws://localhost:8000/ws/simple/`.
 
 ```python
-# core/consumers.py
+# apps/core/consumers.py
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 
@@ -529,7 +577,7 @@ class MyConsumer(AsyncWebsocketConsumer):
 ```
 
 ```python
-# core/routing.py
+# apps/core/routing.py
 websocket_urlpatterns = [
     path("ws/simple/", SimpleConsumer.as_asgi()),
     path("ws/mine/", MyConsumer.as_asgi()),
@@ -578,13 +626,13 @@ an aggregator.
 In application code:
 
 ```python
-from core.logging import get_logger
+from apps.core.logging import get_logger
 
 logger = get_logger(__name__)
 logger.info("Order created", extra={"order_id": order.id})
 ```
 
-`core/logging.py` also provides `log_request_response`, `log_execution_time`,
+`apps/core/logging.py` also provides `log_request_response`, `log_execution_time`,
 `log_exception` and `enrich_log_context`.
 
 ---
@@ -697,6 +745,7 @@ If you are coming from an earlier checkout of this project:
 | `docker-compose.yml`, `docker-compose.prod.yml` | `.docker/compose.yaml`, `.docker/compose.prod.yaml` |
 | `docker-entrypoint.sh` | `.docker/django/entrypoint.sh` |
 | `nginx/` | `.docker/nginx/` |
+| `core/` | `apps/core/` - every project app now lives under `apps/` |
 | `.dockerignore` | `.docker/*/Dockerfile.dockerignore` |
 | `uwsgi.ini`, uWSGI | Removed - Daphne serves HTTP and WebSockets |
 | `DJANGO_SETTINGS_MODULE=config.settings.base` | `config.settings` |
@@ -712,6 +761,10 @@ Breaking changes to plan for:
 - **RabbitMQ 3 → 4** and **Redis 7 → 8.**
 - **Django 5.2 → 6.0.** Pinned to the 6.0 series because `django-celery-beat`
   2.9.0 requires `Django<6.1`.
+- **Apps moved under `apps/`.** `core` is now `apps.core`: update `LOCAL_APPS`,
+  imports (`from apps.core.tasks import ...`) and any Celery task names stored
+  in `django_celery_beat` periodic tasks (`core.tasks.x` -> `apps.core.tasks.x`).
+  App *labels* are unchanged, so migrations and `get_app_config` still work.
 - `CORS_ORIGIN_WHITELIST` was dropped; use `CORS_ALLOWED_ORIGINS`.
 - The real admin path is now configurable via `ADMIN_URL` rather than hard-coded.
 

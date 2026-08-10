@@ -91,10 +91,11 @@ THIRD_PARTY_APPS = [
     "channels",
 ]
 
-# Add project apps here. `core` is installed so its management commands,
-# Celery tasks and Channels consumers are discovered.
+# Project apps all live under `apps/` and are named `apps.<name>`. `apps.core`
+# is installed so its management commands, Celery tasks and Channels consumers
+# are discovered.
 LOCAL_APPS = [
-    "core",
+    "apps.core",
 ]
 
 INSTALLED_APPS = [*DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]

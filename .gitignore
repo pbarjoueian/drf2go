@@ -115,3 +115,5 @@ staticfiles
 .codegpt
 .qodo
 .cursor
+
+.ruff_cache/

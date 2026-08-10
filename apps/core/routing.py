@@ -6,7 +6,7 @@ This module defines WebSocket URL patterns.
 
 from django.urls import path
 
-from core.consumers import SimpleConsumer
+from apps.core.consumers import SimpleConsumer
 
 websocket_urlpatterns = [
     path("ws/simple/", SimpleConsumer.as_asgi()),

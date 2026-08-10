@@ -17,7 +17,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 # models, so the HTTP application is built first.
 django_asgi_app = get_asgi_application()
 
-from core.routing import websocket_urlpatterns
+from apps.core.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
